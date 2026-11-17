@@ -1,0 +1,83 @@
+# Scrap & Sparks: the player's setup. Start it with start.bat (Windows) or start.sh (macOS, Linux);
+# they create the .env file for you, start everything and open the game.
+#
+#   n8n        the automation tool you learn (pinned version)
+#   runners    runs Code node code (JavaScript and Python) in its own container
+#   companion  serves the game at http://localhost:8765 and checks your workflows
+#
+# Every port is published on 127.0.0.1 only: nothing is reachable from your network.
+# This is the file players download. The developer's own setup is ../compose.yaml.
+
+name: scrap-and-sparks-player
+
+services:
+  n8n:
+    image: n8nio/n8n:${N8N_VERSION:-2.43.7}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    environment:
+      # Timezone for Schedule triggers and dates (start.bat / start.sh fill it in from your computer when they can)
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Brussels}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Brussels}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      # Base URL n8n shows for test and production webhooks and forms (as your browser sees it)
+      N8N_WEBHOOK_URL: http://localhost:${N8N_PORT:-5678}/
+      # Code node code runs in the separate "runners" container ("external" mode)
+      N8N_RUNNERS_MODE: external
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      N8N_RUNNERS_AUTH_TOKEN: "${N8N_RUNNERS_AUTH_TOKEN:?Run start.bat or start.sh first, they create .env}"
+      # Explicit values for defaults that change in n8n 3.0 (avoids surprises when updating)
+      N8N_RUNNERS_TASK_TIMEOUT: "60"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: "268435456"
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: "1000"
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  runners:
+    image: n8nio/runners:${N8N_VERSION:-2.43.7}
+    restart: unless-stopped
+    environment:
+      N8N_RUNNERS_TASK_BROKER_URI: http://n8n:5679
+      N8N_RUNNERS_AUTH_TOKEN: "${N8N_RUNNERS_AUTH_TOKEN:?Run start.bat or start.sh first, they create .env}"
+    depends_on:
+      - n8n
+
+  companion:
+    # Prebuilt image (no source code needed), for PC and Mac: built without Tester mode and with
+    # chapters 0 to 6 only (README › "Publish the player download").
+    image: ${COMPANION_IMAGE:-ghcr.io/ouranos88/scrap-and-sparks-companion:0.1.0}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${COMPANION_PORT:-8765}:8765"
+      # n8n inside the game: local only, like every other port
+      - "127.0.0.1:${N8N_FRAME_PORT:-5688}:5688"
+    environment:
+      COMPANION_HOST: 0.0.0.0
+      COMPANION_PORT: "8765"
+      COMPANION_PUBLIC_PORT: ${COMPANION_PORT:-8765}
+      N8N_VERSION: ${N8N_VERSION:-2.43.7}
+      N8N_BASE_URL: http://n8n:5678
+      N8N_PUBLIC_URL: http://localhost:${N8N_PORT:-5678}
+      # The API key is pasted in the game (Level 0) and kept in the companion's own volume.
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      GAME_TAG: scrap-and-sparks
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # "Build it in n8n" creates one new, empty, game-tagged workflow (user's decision, 2026-11-14: on for players)
+      ALLOW_WRITES: ${ALLOW_WRITES:-true}
+      N8N_FRAME: "on"
+      N8N_FRAME_PORT: "5688"
+      N8N_FRAME_PUBLIC_PORT: ${N8N_FRAME_PORT:-5688}
+      MOCK_API_URL_FOR_N8N: http://companion:8765/mock
+      COMPANION_DATA_DIR: /data
+    volumes:
+      - companion_data:/data
+    depends_on:
+      - n8n
+
+# Created by Docker the first time (unlike ../compose.yaml, nothing must exist beforehand).
+# Your n8n account, workflows and API key live here; `docker compose down` keeps them.
+volumes:
+  n8n_data:
+  companion_data:
