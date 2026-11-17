@@ -6,7 +6,13 @@ set -u
 cd "$(dirname "$0")" || exit 1
 
 say() { printf '  %s\n' "$*"; }
-fail() { printf '\n'; exit 1; }
+# SAS_PAUSE=1 (set by the Linux menu launcher, whose terminal closes at the end): wait for Enter
+# after an error, and a few seconds after success, so the message can be read.
+fail() {
+  printf '\n'
+  if [ -n "${SAS_PAUSE:-}" ]; then printf '  Press Enter to close. '; read -r _ </dev/tty || true; fi
+  exit 1
+}
 open_url() {
   if command -v open >/dev/null 2>&1; then open "$1"
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 &
@@ -18,6 +24,13 @@ printf '\n  Scrap & Sparks\n  ---------------\n\n'
 os=$(uname)
 
 # ---- 1. Is Docker installed? ----
+# Docker Desktop on a Mac puts its tools in one of these folders; a window opened from a
+# launcher (or right after the install) may not know them yet.
+if ! command -v docker >/dev/null 2>&1; then
+  for d in /usr/local/bin "$HOME/.docker/bin" /Applications/Docker.app/Contents/Resources/bin; do
+    if [ -x "$d/docker" ]; then PATH="$d:$PATH"; export PATH; break; fi
+  done
+fi
 if ! command -v docker >/dev/null 2>&1; then
   if [ "$os" = Darwin ]; then
     say "Docker Desktop is not installed yet. The install page opens now."
@@ -34,17 +47,25 @@ fi
 if ! docker info >/dev/null 2>&1; then
   if [ "$os" = Darwin ]; then
     say "Starting Docker Desktop (this can take a minute)..."
+    say "The first time, Docker Desktop shows its agreement: read it and click Accept."
+    say "You do not need a Docker account: you can skip signing in."
     open -a Docker >/dev/null 2>&1 || true
     tries=0
     until docker info >/dev/null 2>&1; do
       tries=$((tries + 1))
-      if [ "$tries" -ge 60 ]; then
+      if [ "$tries" -ge 100 ]; then
         say "Docker Desktop did not start. Open it yourself, wait until it is running, then run start.sh again."
         fail
       fi
       sleep 3
     done
   else
+    # Just added to the "docker" group (install.sh does it) but not logged in again since:
+    # run this script once more inside that group.
+    if [ -z "${SAS_SG:-}" ] && command -v sg >/dev/null 2>&1 && grep -q "^docker:.*[:,]$(id -un)\(,\|$\)" /etc/group 2>/dev/null; then
+      SAS_SG=1; export SAS_SG
+      exec sg docker -c "sh \"$(pwd)/start.sh\""
+    fi
     say "Docker is not running, or your user may not use it."
     say "Start it (for example: sudo systemctl start docker). If it says 'permission denied',"
     say "see https://docs.docker.com/engine/install/linux-postinstall/  Then run start.sh again."
@@ -101,3 +122,4 @@ printf '\n'
 say "The game runs at http://localhost:$port"
 say "To stop it later: sh stop.sh. Your progress and your n8n stay saved."
 printf '\n'
+if [ -n "${SAS_PAUSE:-}" ]; then sleep 8; fi
