@@ -47,7 +47,7 @@ services:
   companion:
     # Prebuilt image (no source code needed), for PC and Mac: built without Tester mode and with
     # chapters 0 to 6 only (README › "Publish the player download").
-    image: ${COMPANION_IMAGE:-ghcr.io/ouranos88/scrap-and-sparks-companion:0.1.1}
+    image: ${COMPANION_IMAGE:-ghcr.io/ouranos88/scrap-and-sparks-companion:0.1.2}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${COMPANION_PORT:-8765}:8765"
@@ -71,6 +71,10 @@ services:
       N8N_FRAME_PUBLIC_PORT: ${N8N_FRAME_PORT:-5688}
       MOCK_API_URL_FOR_N8N: http://companion:8765/mock
       COMPANION_DATA_DIR: /data
+      # The full game: Polar's checkout page, the customer portal (find your key, free a computer), the price
+      SAS_CHECKOUT_URL: ${SAS_CHECKOUT_URL:-https://buy.polar.sh/polar_cl_FMFlrsoKSGDrTd3u7b9lEBzFOB0gjo1btrXZu4DZC2I}
+      SAS_PORTAL_URL: ${SAS_PORTAL_URL:-https://polar.sh/scrap-and-sparks/portal}
+      SAS_PRICE: ${SAS_PRICE:-12 EUR}
     volumes:
       - companion_data:/data
     depends_on:
