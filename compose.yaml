@@ -47,7 +47,7 @@ services:
   companion:
     # Prebuilt image (no source code needed), for PC and Mac: built without Tester mode and with
     # chapters 0 to 6 only (README › "Publish the player download").
-    image: ${COMPANION_IMAGE:-ghcr.io/ouranos88/scrap-and-sparks-companion:0.1.2}
+    image: ${COMPANION_IMAGE:-ghcr.io/ouranos88/scrap-and-sparks-companion:0.1.3}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${COMPANION_PORT:-8765}:8765"
